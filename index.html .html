@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f0f0f">
+<title>빈 박스 계산</title>
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface-2: #242424;
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.18);
+    --text: #f5f5f5;
+    --text-muted: #a0a0a0;
+    --text-dim: #6a6a6a;
+    --accent: #5dcaa5;
+    --accent-dim: rgba(93,202,165,0.15);
+    --danger: #e24b4a;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.5rem 1.25rem 4rem;
+  }
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+    gap: 12px;
+  }
+  h1 { font-size: 22px; font-weight: 600; margin: 0; }
+  h2 { font-size: 16px; font-weight: 500; margin: 0; }
+  .status { font-size: 12px; color: var(--text-dim); white-space: nowrap; }
+  .status.ok { color: var(--accent); }
+  .status.err { color: var(--danger); }
+  .lede {
+    font-size: 13px; color: var(--text-muted); margin: 0 0 1.5rem;
+  }
+  .summary {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+  }
+  .summary-item .label { font-size: 13px; color: var(--text-muted); margin: 0 0 6px; }
+  .summary-item .value { font-size: 26px; font-weight: 500; margin: 0; letter-spacing: -0.5px; }
+  .summary-item .detail { font-size: 11px; color: var(--text-dim); margin: 4px 0 0; }
+  .section { margin-bottom: 2rem; }
+  .section-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .section-head .meta { font-size: 12px; color: var(--text-dim); }
+  .list {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 110px 108px;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--border);
+  }
+  .row:last-child { border-bottom: none; }
+  .row .name { font-size: 14px; min-width: 0; }
+  .wrap-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    margin-left: 6px;
+    vertical-align: 1px;
+  }
+  .wrap-on { background: var(--accent-dim); color: var(--accent); }
+  .wrap-off { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+  input[type="number"] {
+    width: 100%;
+    text-align: right;
+    background: var(--bg);
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.1s;
+    -moz-appearance: textfield;
+  }
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none; margin: 0;
+  }
+  input[type="number"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+  .readout { text-align: right; font-size: 13px; }
+  .readout .boxes { font-weight: 500; color: var(--text); }
+  .readout .leftover { display: block; font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+  button {
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--surface);
+    border: 0.5px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.1s, transform 0.05s;
+  }
+  button:hover { background: var(--surface-2); }
+  button:active { transform: scale(0.98); }
+  .footnote {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 1.5rem;
+    line-height: 1.6;
+  }
+  @media (max-width: 480px) {
+    .container { padding: 1rem 0.875rem 3rem; }
+    h1 { font-size: 20px; }
+    .row { grid-template-columns: minmax(0,1fr) 90px 90px; gap: 8px; padding: 10px 12px; }
+    .row .name { font-size: 13px; }
+    .summary { padding: 0.875rem 1rem; gap: 12px; }
+    .summary-item .value { font-size: 22px; }
+    input[type="number"] { padding: 7px 8px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>빈 박스 계산</h1>
+    <span id="sync-status" class="status">불러오는 중…</span>
+  </div>
+  <p class="lede">상품별 남은 낱개 수량을 입력하면 필요한 빈 박스 수가 자동 계산됩니다. 입력값은 모든 접속자에게 공유됩니다.</p>
+
+  <div class="summary">
+    <div class="summary-item">
+      <p class="label">시그니처 박스</p>
+      <p class="value" id="sum-sig">0개</p>
+      <p class="detail" id="sum-sig-detail">낱개 0개 / 20개입</p>
+    </div>
+    <div class="summary-item">
+      <p class="label">선물세트 박스</p>
+      <p class="value" id="sum-gift">0개</p>
+      <p class="detail" id="sum-gift-detail">낱개 0개 / 8개입</p>
+    </div>
+    <div class="summary-item">
+      <p class="label">총 필요 박스</p>
+      <p class="value" id="sum-total">0개</p>
+      <p class="detail">시그니처 + 선물세트</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2>삼각 시그니처</h2>
+      <span class="meta">20개 / 박스</span>
+    </div>
+    <div id="sig-list" class="list"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2>선물세트</h2>
+      <span class="meta">8개 / 박스 · 보자기 O/X 구분</span>
+    </div>
+    <div id="gift-list" class="list"></div>
+  </div>
+
+  <div class="actions">
+    <button id="refresh-btn">↻ 최신 데이터 불러오기</button>
+    <button id="reset-btn">전체 0으로 초기화</button>
+  </div>
+
+  <p class="footnote">
+    이 페이지 URL을 공유하면 같은 데이터를 함께 보고 수정할 수 있습니다.<br>
+    여러 명이 동시에 수정할 경우, 최신 값을 받으려면 "최신 데이터 불러오기"를 눌러주세요.
+  </p>
+</div>
+
+<script>
+(function(){
+  // ====== CONFIG ======
+  const JSONBIN_KEY = '$2a$10$/g1KhOIyGoqAFg8592U96uksO5FD/aBns9PAAI5n3uGtIfKG.wv2a';
+  const JSONBIN_BIN = '6a0de1f96877513b27a4518b';
+  const API_URL = 'https://api.jsonbin.io/v3/b/' + JSONBIN_BIN;
+
+  // ====== ITEMS ======
+  const SIGNATURE = [
+    { id: 'sig-lotus',    name: '연근참깨' },
+    { id: 'sig-shrimp',   name: '보리새우' },
+    { id: 'sig-tomato',   name: '방울토마토' },
+    { id: 'sig-perilla',  name: '들깨깻잎' },
+    { id: 'sig-shiitake', name: '표고버섯' },
+    { id: 'sig-coffee',   name: '커피' },
+  ];
+  const GIFT_BASE = [
+    { id: 'gift-top3',     name: '인기3종' },
+    { id: 'gift-chef',     name: '셰프혼합' },
+    { id: 'gift-special',  name: '특별구성' },
+    { id: 'gift-shrimp',   name: '보리새우' },
+    { id: 'gift-shiitake', name: '표고버섯' },
+  ];
+  const GIFT = GIFT_BASE.flatMap(g => [
+    { id: g.id + '-wrap',   name: g.name, wrap: true  },
+    { id: g.id + '-nowrap', name: g.name, wrap: false },
+  ]);
+  const SIG_PER_BOX = 20;
+  const GIFT_PER_BOX = 8;
+
+  let state = {};
+  let saveTimer = null;
+  let lastSavedAt = 0;
+
+  function setStatus(text, tone){
+    const el = document.getElementById('sync-status');
+    el.textContent = text;
+    el.className = 'status' + (tone ? ' ' + tone : '');
+  }
+
+  function timeStr(ts){
+    if (!ts) return '';
+    return new Date(ts).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function rowHTML(item, isGift){
+    const qty = state[item.id] || 0;
+    const per = isGift ? GIFT_PER_BOX : SIG_PER_BOX;
+    const boxes = Math.ceil(qty / per);
+    const leftover = qty % per;
+    const badge = isGift
+      ? `<span class="wrap-badge ${item.wrap ? 'wrap-on' : 'wrap-off'}">${item.wrap ? '보자기 O' : '보자기 X'}</span>`
+      : '';
+    return `
+      <div class="row">
+        <div class="name">${item.name}${badge}</div>
+        <input type="number" min="0" step="1" inputmode="numeric" data-id="${item.id}" value="${qty}" />
+        <div class="readout">
+          <span class="boxes">${boxes}박스</span>
+          <span class="leftover">${leftover ? '+ 낱개 ' + leftover : '딱 맞음'}</span>
+        </div>
+      </div>`;
+  }
+
+  function render(){
+    document.getElementById('sig-list').innerHTML = SIGNATURE.map(i => rowHTML(i, false)).join('');
+    document.getElementById('gift-list').innerHTML = GIFT.map(i => rowHTML(i, true)).join('');
+    updateTotals();
+    document.querySelectorAll('input[data-id]').forEach(inp => {
+      inp.addEventListener('input', onInput);
+      inp.addEventListener('focus', () => inp.select());
+    });
+  }
+
+  function onInput(e){
+    const id = e.target.dataset.id;
+    const v = Math.max(0, parseInt(e.target.value, 10) || 0);
+    state[id] = v;
+    updateRowReadout(id, v);
+    updateTotals();
+    scheduleSave();
+  }
+
+  function updateRowReadout(id, v){
+    const isGift = GIFT.some(g => g.id === id);
+    const per = isGift ? GIFT_PER_BOX : SIG_PER_BOX;
+    const boxes = Math.ceil(v / per);
+    const leftover = v % per;
+    const input = document.querySelector(`input[data-id="${id}"]`);
+    if (!input) return;
+    const readout = input.parentElement.querySelector('.readout');
+    readout.innerHTML = `<span class="boxes">${boxes}박스</span><span class="leftover">${leftover ? '+ 낱개 ' + leftover : '딱 맞음'}</span>`;
+  }
+
+  function updateTotals(){
+    const sigQty = SIGNATURE.reduce((a,i)=>a+(state[i.id]||0),0);
+    const giftQty = GIFT.reduce((a,i)=>a+(state[i.id]||0),0);
+    const sigBoxes = SIGNATURE.reduce((a,i)=>a+Math.ceil((state[i.id]||0)/SIG_PER_BOX),0);
+    const giftBoxes = GIFT.reduce((a,i)=>a+Math.ceil((state[i.id]||0)/GIFT_PER_BOX),0);
+    document.getElementById('sum-sig').textContent = sigBoxes + '개';
+    document.getElementById('sum-sig-detail').textContent = `낱개 ${sigQty}개 / 20개입`;
+    document.getElementById('sum-gift').textContent = giftBoxes + '개';
+    document.getElementById('sum-gift-detail').textContent = `낱개 ${giftQty}개 / 8개입`;
+    document.getElementById('sum-total').textContent = (sigBoxes + giftBoxes) + '개';
+  }
+
+  function scheduleSave(){
+    setStatus('저장 중…');
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 700);
+  }
+
+  async function save(){
+    try {
+      const now = Date.now();
+      const res = await fetch(API_URL, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': JSONBIN_KEY,
+          'X-Bin-Versioning': 'false'
+        },
+        body: JSON.stringify({ state, updatedAt: now })
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      lastSavedAt = now;
+      setStatus('저장됨 · ' + timeStr(now), 'ok');
+    } catch (err) {
+      console.error('save failed', err);
+      setStatus('저장 실패 — 다시 시도해 주세요', 'err');
+    }
+  }
+
+  async function load(){
+    setStatus('불러오는 중…');
+    try {
+      const res = await fetch(API_URL + '/latest', {
+        method: 'GET',
+        headers: { 'X-Master-Key': JSONBIN_KEY }
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const record = data.record || {};
+      state = record.state || {};
+      lastSavedAt = record.updatedAt || 0;
+      render();
+      setStatus(lastSavedAt ? '동기화됨 · ' + timeStr(lastSavedAt) : '새 세션', 'ok');
+    } catch (err) {
+      console.error('load failed', err);
+      state = {};
+      render();
+      setStatus('불러오기 실패 — 새로고침 해주세요', 'err');
+    }
+  }
+
+  document.getElementById('refresh-btn').addEventListener('click', load);
+  document.getElementById('reset-btn').addEventListener('click', async () => {
+    if (!confirm('모든 입력값을 0으로 초기화할까요? 모든 접속자에게 반영됩니다.')) return;
+    state = {};
+    render();
+    await save();
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>
